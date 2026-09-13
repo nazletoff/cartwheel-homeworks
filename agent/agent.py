@@ -72,9 +72,10 @@ or credential changes, and anything outside Cartwheel.
   order's refund eligibility.
 
 ## Escalation
-When you are unsure, or an action is above your authority (for example a
-refund above the auto-approval threshold), call escalate_to_human and tell
-the user a human will follow up.
+When you are unsure, or an action is above your authority, call
+escalate_to_human and tell the user a human will follow up. A refund above
+the auto-approval threshold is not an escalation: issue_refund queues it for
+human approval on its own, so report that result and do not open a ticket.
 
 ## Tone
 Plain and warm. No legalese.
@@ -190,9 +191,9 @@ def get_order_logic(ctx: AuthContext, order_id: int) -> dict[str, Any]:
         if order is None:
             return {"ok": False, "error": "not_found", "reason": f"no order #{order_id}"}
         if not can_view_order(ctx, order.user_id, order.store_id):
-            return permission_denied(
-                f"role '{ctx.role}' (user {ctx.user_id}) may not view order #{order_id}"
-            )
+            # Same wording as not_found on purpose: an out-of-scope caller must
+            # not be able to tell "not yours" from "does not exist" (RESP-4).
+            return permission_denied(f"no order #{order_id} available to this account")
         store = db.get_store(conn, order.store_id)
         payload = order.to_public_dict()
         payload["store_name"] = store.name if store else None
@@ -421,6 +422,14 @@ def find_order(
     return _call(wrapper, hw_tools.find_order, query)
 
 
+@function_tool
+def explain_refund_eligibility(
+    wrapper: RunContextWrapper[AuthContext], order_id: int
+) -> dict[str, Any]:
+    """Explain the reason behind an order's refund eligibility (the yes/no is already in get_order). Returns the delivery date, the return window that applies including any store override, days elapsed, the date the window closes, a plain-language reason, and the policy id to cite. Call it whenever you tell a user an order is or is not eligible, so you can say why."""
+    return _call(wrapper, hw_tools.explain_refund_eligibility, order_id)
+
+
 # Progressive disclosure: a session exposes only the tools its role can use.
 # Fewer tools mean fewer wrong choices and cleaner evals. At dev scale the
 # only difference is that support staff, who have no orders of their own,
@@ -430,6 +439,7 @@ _COMMON_TOOLS = [
     get_policy,
     search_products,
     get_order,
+    explain_refund_eligibility,
     issue_refund,
     cancel_order,
     escalate_to_human,
