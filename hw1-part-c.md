@@ -1,5 +1,7 @@
 # HW1 Part C: one system prompt revision
 
+Video: https://www.loom.com/share/df5abbd8df53418d8ed13bb6203ab40f
+
 ## Requirement tested
 
 ESC-1: for a refund above the $100 threshold, the refund tool queues it for human approval and the agent explains that result.
