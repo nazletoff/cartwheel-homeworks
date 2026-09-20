@@ -18,3 +18,6 @@ __pycache__/
 .venv/
 .pytest_cache/
 scenarios/demo_pilot_gt.json
+
+# HW4 review app: local trace cache pulled from Langfuse
+analysis/review_app/cache/
