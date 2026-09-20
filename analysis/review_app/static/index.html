@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartwheel review</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header id="topbar">
+  <div id="ids"></div>
+  <div id="nav">
+    <select id="queue-picker" title="Queue"></select>
+    <select id="conv-picker" title="Conversations in this queue"></select>
+    <button id="prev" class="btn" title="previous · k">&lsaquo;</button>
+    <span id="pos">0 / 0</span>
+    <button id="next" class="btn" title="next · j">&rsaquo;</button>
+    <span id="filter-chip" class="chip" hidden></span>
+  </div>
+  <div id="right">
+    <span id="counts"></span>
+    <div id="view-toggle" class="seg">
+      <button type="button" data-view="review" class="on">Review</button>
+      <button type="button" data-view="progress">Progress</button>
+    </div>
+    <button id="help-toggle" class="btn" title="hotkeys · ?">?</button>
+  </div>
+</header>
+
+<div id="offline-banner" class="banner warn" hidden></div>
+<div id="error-banner" class="banner error" hidden>
+  <span id="error-text"></span>
+  <button type="button" class="link" id="error-close">dismiss</button>
+</div>
+
+<details id="answer-key">
+  <summary>Answer key</summary>
+  <div id="answer-key-body"></div>
+</details>
+
+<main id="review-view">
+  <section id="conversation"></section>
+  <aside id="margin"></aside>
+  <aside id="panel">
+    <section class="panel-section" id="modes-section">
+      <h2>Modes</h2>
+      <div id="modes"></div>
+    </section>
+    <section class="panel-section" id="compare-section">
+      <h2>Compare</h2>
+      <div id="compare"></div>
+    </section>
+    <section class="panel-section" id="labels-section">
+      <h2>Labels for this conversation</h2>
+      <div id="labels"></div>
+    </section>
+  </aside>
+</main>
+
+<main id="progress-view" hidden>
+  <section class="progress-section" id="coverage"></section>
+  <section class="progress-section" id="grid"></section>
+  <section class="progress-section" id="discovery"></section>
+  <section class="progress-section" id="batches"></section>
+</main>
+
+<div id="popover" hidden>
+  <input id="note-input" type="text" placeholder="note on the selected text" autocomplete="off">
+  <div class="hint">Enter saves · Esc cancels</div>
+</div>
+
+<div id="hotkeys" hidden>
+  <table>
+    <tr><td><kbd>j</kbd> <kbd>&rarr;</kbd></td><td>next conversation</td></tr>
+    <tr><td><kbd>k</kbd> <kbd>&larr;</kbd></td><td>previous conversation</td></tr>
+    <tr><td><kbd>0</kbd></td><td>no failure observed</td></tr>
+    <tr><td><kbd>1</kbd> to <kbd>9</kbd></td><td>toggle present on the nth final mode</td></tr>
+    <tr><td><kbd>Enter</kbd></td><td>save the note</td></tr>
+    <tr><td><kbd>Esc</kbd></td><td>cancel · close</td></tr>
+    <tr><td><kbd>?</kbd></td><td>this panel</td></tr>
+  </table>
+  <div class="hint">select text in any block to note it</div>
+</div>
+
+<div id="toast"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
