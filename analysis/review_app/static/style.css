@@ -310,3 +310,14 @@ table.grid tr.foot td { border-top: 2px solid var(--line); color: var(--muted); 
 .twist { color: var(--muted); font-size: 12px; }
 .batch { margin-bottom: 16px; }
 .batch-head { display: flex; gap: 10px; align-items: baseline; margin-bottom: 4px; }
+
+/* Acceptance fixes (2026-09-20, real browser): the hidden attribute must beat
+   display rules; no horizontal overflow; a usable single-ish column below 900px. */
+[hidden] { display: none !important; }
+#conversation, #margin, #panel { min-width: 0; max-width: 100%; }
+#ids .scenario { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 900px) {
+  #topbar { flex-wrap: wrap; row-gap: 6px; height: auto; }
+  #review-view { grid-template-columns: minmax(0, 1fr) 200px; }
+  #panel { grid-column: 1 / -1; position: static; max-height: none; }
+}
