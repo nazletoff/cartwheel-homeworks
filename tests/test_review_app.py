@@ -219,3 +219,60 @@ def test_merge_modes_keeps_created_from(store):
     names = [m["name"] for m in p["modes"]]
     assert names == ["a"] and set(p["modes"][0]["created_from"]) == {"n1", "n2"}
     assert p["modes"][0]["revisions"][-1]["change"].startswith("merged b")
+
+
+# ---------------------------------------------------------------------------
+# API
+# ---------------------------------------------------------------------------
+
+from fastapi.testclient import TestClient  # noqa: E402
+
+
+@pytest.fixture
+def client(tmp_path, monkeypatch):
+    monkeypatch.setenv("CARTWHEEL_ANALYSIS_STATE", str(tmp_path))
+    monkeypatch.setenv("CARTWHEEL_REVIEW_TRACE_SOURCE", str(FIXTURE))
+    monkeypatch.setenv("CARTWHEEL_REVIEW_OFFLINE_SCORES", "1")
+    from importlib import reload
+
+    from analysis.review_app import app as appmod
+
+    reload(appmod)
+    return TestClient(appmod.app)
+
+
+def test_conversation_endpoint_groups_turns(client):
+    rows = client.get("/api/conversations?queue=all").json()
+    sid = [c for c in rows if c["scenario_id"] == "support-0213"][0]["session_id"]
+    body = client.get(f"/api/conversation/{sid}").json()
+    assert body["turn_count"] == 3 and body["annotations"] == [] and body["answer_key"]["policy_id"]
+
+
+def test_note_then_label_roundtrip(client):
+    conv = client.get("/api/conversations?queue=all").json()[0]
+    sid = conv["session_id"]
+    full = client.get(f"/api/conversation/{sid}").json()
+    tid = full["turns"][0]["trace_id"]
+    r = client.post(
+        "/api/annotation",
+        json={"session_id": sid, "trace_id": tid, "block": "r", "quote": "I", "note": "test"},
+    )
+    assert r.status_code == 200
+    client.post("/api/patterns", json={"modes": [{"name": "m", "status": "final", "definition": "d"}]})
+    r = client.post(
+        "/api/label",
+        json={"session_id": sid, "mode": "m", "label": 1, "evidence": {"trace_id": tid, "quote": "I"}},
+    )
+    assert r.status_code == 200 and r.json()["langfuse_error"] is None
+    assert client.get(f"/api/conversation/{sid}").json()["status"] == "labelled"
+
+
+def test_progress_shape(client):
+    p = client.get("/api/progress").json()
+    assert {"coverage", "grid", "modes", "discovery"} <= set(p)
+
+
+def test_meta_has_spec_legend(client):
+    m = client.get("/api/meta").json()
+    ids = {row["id"] for row in m["spec_legend"]}
+    assert {"ESC-1", "RESP-2", "RESP-5"} <= ids
