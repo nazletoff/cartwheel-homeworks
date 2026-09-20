@@ -321,3 +321,11 @@ table.grid tr.foot td { border-top: 2px solid var(--line); color: var(--muted); 
   #review-view { grid-template-columns: minmax(0, 1fr) 200px; }
   #panel { grid-column: 1 / -1; position: static; max-height: none; }
 }
+
+/* Answer key lives at the top of the right panel (Nazli, 2026-09-20): the panel is
+   idle during open coding and the key must not push the conversation down. */
+#panel #answer-key { margin: 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
+#panel #answer-key summary { padding: 10px 14px; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; font-weight: 600; }
+#panel #answer-key-body { padding: 4px 14px 12px; }
+#panel table.kv th { width: 92px; }
+#panel table.kv { width: 100%; }
