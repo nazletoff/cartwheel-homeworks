@@ -29,6 +29,8 @@ const state = {
   splitSel: new Set(), // annotation ids ticked for a split
   evidenceMode: null,  // mode name while the next selection becomes label evidence
   picker: null,        // mode name while the evidence picker is open
+  gridOpen: {},        // session_id -> turns shown in the label grid
+  intentOf: null,      // session_id -> intent, read lazily for the intent filter
 };
 
 let openSeq = 0;       // guards against out-of-order conversation loads
@@ -120,7 +122,9 @@ async function refreshAllIndex() {
 
 function applyFilter(list) {
   if (!state.filter) return list;
-  return list.filter((c) => c[state.filter.dim] === state.filter.value);
+  const { dim, value } = state.filter;
+  if (dim === 'intent') return list.filter((c) => (state.intentOf || {})[c.session_id] === value);
+  return list.filter((c) => c[dim] === value);
 }
 
 /* The queue list again, keeping the open conversation's position. */
@@ -1144,9 +1148,201 @@ $('panel').addEventListener('change', (e) => {
   }
 });
 
-/* ---- filled in by the progress task ------------------------------------ */
+/* ---- progress view: coverage, label grid, discovery, batches ------------ */
 
-function refreshProgressView() {}
+async function refreshProgressView() {
+  try {
+    await Promise.all([refreshProgress(), refreshManifest(), refreshPatterns()]);
+  } catch (e) {
+    toast('progress failed to load: ' + e.message);
+    return;
+  }
+  renderProgress();
+}
+
+function renderProgress() {
+  renderCoverage();
+  renderGrid();
+  renderDiscovery();
+  renderBatches();
+}
+
+function fmtDate(s) {
+  if (!s) return '';
+  const d = new Date(String(s).replace(' ', 'T').replace(/(\.\d{3})\d+/, '$1'));
+  return isNaN(d) ? String(s) : d.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function renderCoverage() {
+  const p = state.progress;
+  const el = $('coverage');
+  if (!p) { el.innerHTML = ''; return; }
+  const dims = [['role', 'Role'], ['intent', 'Intent'], ['scenario_group', 'Scenario group']];
+  let html = '<h2>Coverage</h2>' +
+    '<div class="summary">' +
+      (p.sample_size ? p.reviewed + ' of ' + p.sample_size + ' sampled conversations reviewed' : 'no batches yet') +
+      ' · ' + p.suggestions_pending + ' suggestions pending · click a row to queue it' +
+    '</div>' +
+    '<table class="cov"><tr><th class="left"></th><th>total</th><th>in sample</th><th>reviewed</th><th>noted</th><th>no failure</th></tr>';
+  dims.forEach(([dim, label]) => {
+    const rows = p.coverage[dim] || {};
+    html += '<tr class="section"><td colspan="6">' + label + '</td></tr>';
+    Object.keys(rows).sort().forEach((v) => {
+      const r = rows[v];
+      html += '<tr class="row" data-dim="' + dim + '" data-value="' + esc(v) + '">' +
+        '<td class="left">' + esc(v) + '</td><td>' + r.total + '</td><td>' + r.in_sample + '</td>' +
+        '<td>' + r.reviewed + '</td><td>' + r.noted + '</td><td>' + r.no_failure + '</td></tr>';
+    });
+  });
+  el.innerHTML = html + '</table>';
+}
+
+/* Coverage rows become queues: role rows are server queues; intent and
+   scenario group rows filter the all queue on the client. */
+async function queueCoverage(dim, value) {
+  if (dim === 'role') {
+    // the server's role queues cover sampled conversations only; with none
+    // sampled for this role, filter every conversation instead
+    const q = state.queues.find((x) => x.name === 'role:' + value);
+    if (q && q.count > 0) { loadQueue('role:' + value); return; }
+    toast('no sampled ' + value + ' conversations yet, showing all of them');
+  }
+  if (dim === 'intent') await ensureIntentIndex();
+  loadQueue('all', { filter: { dim, value } });
+}
+
+/* The list API carries no intent, so the first intent filter reads every
+   conversation once (local server, a few seconds) and remembers the answer. */
+async function ensureIntentIndex() {
+  if (state.intentOf) return;
+  toast('reading intents from every conversation, one moment');
+  const ids = Object.keys(state.allIndex);
+  const intentOf = {};
+  let next = 0;
+  async function worker() {
+    while (next < ids.length) {
+      const sid = ids[next++];
+      try {
+        const c = await api('GET', '/api/conversation/' + encodeURIComponent(sid));
+        intentOf[sid] = (((c.answer_key || {}).tuple) || {}).intent || 'unknown';
+      } catch (e) {
+        intentOf[sid] = 'unknown';
+      }
+    }
+  }
+  await Promise.all([worker(), worker(), worker(), worker(), worker(), worker()]);
+  state.intentOf = intentOf;
+}
+
+function convCell(row, mode) {
+  const vals = row.turns.map((t) => t.labels[mode]);
+  if (vals.some((v) => v === 1)) return 1;
+  if (vals.some((v) => v === 0)) return 0;
+  return null;
+}
+
+function cellHtml(v) {
+  if (v === 1) return '<td class="cell one">1</td>';
+  if (v === 0) return '<td class="cell zero">0</td>';
+  return '<td class="cell empty"></td>';
+}
+
+function renderGrid() {
+  const p = state.progress;
+  const el = $('grid');
+  let html = '<h2>Label grid</h2>';
+  if (!p || !p.grid.length) {
+    el.innerHTML = html + '<div class="small muted">no sampled conversations yet: batches arrive through POST /api/samples</div>';
+    return;
+  }
+  const cols = finalModes().map((m) => m.name);
+  if (!cols.length) html += '<div class="summary">no final modes yet: rows show the sample, a column appears when a mode turns final</div>';
+  const modeRows = {};
+  (p.modes || []).forEach((r) => { modeRows[r.name] = r; });
+  html += '<table class="grid"><tr><th class="left">conversation</th><th>status</th>' +
+    cols.map((c) => '<th class="col mono" title="' + esc(c) + '">' + esc(c) + '</th>').join('') + '</tr>';
+  p.grid.forEach((row) => {
+    const multi = row.turns.length > 1;
+    const open = !!state.gridOpen[row.session_id];
+    html += '<tr class="conv"><td class="left">' +
+      (multi ? '<button type="button" class="link twist" data-action="grid-toggle" data-sid="' + esc(row.session_id) + '" title="show turns">' + (open ? '▾' : '▸') + '</button> ' : '') +
+      '<button type="button" class="link" data-action="grid-open" data-sid="' + esc(row.session_id) + '">' + esc(row.scenario_id) + '</button> ' +
+      '<span class="muted small">' + esc(row.role) + (multi ? ' · ' + row.turns.length + ' turns' : '') + '</span></td>' +
+      '<td title="' + esc(row.status) + '">' + (STATUS_GLYPH[row.status] || '○') + '</td>' +
+      cols.map((c) => cellHtml(convCell(row, c))).join('') + '</tr>';
+    if (multi && open) {
+      row.turns.forEach((t, i) => {
+        html += '<tr class="turn-row"><td class="left muted small">turn ' + (i + 1) + ' · <span class="mono">' + esc(shortId(t.trace_id)) + '</span></td><td></td>' +
+          cols.map((c) => cellHtml(t.labels[c])).join('') + '</tr>';
+      });
+    }
+  });
+  html += '<tr class="foot"><td class="left">count</td><td></td>' +
+    cols.map((c) => '<td>' + (modeRows[c] ? modeRows[c].any_instance_count : '') + '</td>').join('') + '</tr>';
+  html += '<tr class="foot"><td class="left">sample fraction</td><td></td>' +
+    cols.map((c) => '<td>' + fmtFraction(modeRows[c], p.sample_size) + '</td>').join('') + '</tr>';
+  el.innerHTML = html + '</table>';
+}
+
+function fmtFraction(r, sampleSize) {
+  if (!r || r.sample_fraction == null) return '-';
+  return Math.round(r.sample_fraction * 100) + '% of ' + sampleSize;
+}
+
+function renderDiscovery() {
+  const p = state.progress;
+  const el = $('discovery');
+  let html = '<h2>Discovery</h2>';
+  if (!p || !p.discovery.length) {
+    el.innerHTML = html + '<div class="small muted">no batches yet</div>';
+    return;
+  }
+  html += '<table class="cov"><tr><th class="left">batch</th><th class="left">method</th><th>size</th><th>reviewed</th><th class="left">new modes</th></tr>';
+  p.discovery.forEach((d) => {
+    html += '<tr><td class="left">' + esc(d.batch) + '</td><td class="left">' + esc(d.method) + '</td><td>' + d.size + '</td><td>' + d.reviewed + '</td>' +
+      '<td class="left">' + d.new_modes.length + (d.new_modes.length ? ' <span class="muted small mono">' + d.new_modes.map(esc).join(', ') + '</span>' : '') + '</td></tr>';
+  });
+  const last = p.discovery[p.discovery.length - 1];
+  html += '</table><div class="summary">new modes in ' + esc(last.batch) + ': ' + last.new_modes.length + '</div>';
+  el.innerHTML = html;
+}
+
+function renderBatches() {
+  const el = $('batches');
+  const batches = (state.manifest && state.manifest.batches) || [];
+  let html = '<h2>Batches</h2>';
+  if (!batches.length) {
+    el.innerHTML = html + '<div class="small muted">no batches yet: a conversation can sit in one batch only, the API refuses a second</div>';
+    return;
+  }
+  batches.forEach((b) => {
+    html += '<div class="batch"><div class="batch-head"><span class="strong">' + esc(b.name) + '</span>' +
+      '<span class="muted small">' + esc(b.method) + ' · ' + b.items.length + ' conversations · ' + esc(fmtDate(b.created_at)) + '</span>' +
+      '<button type="button" class="link" data-action="queue" data-queue="' + esc(b.name) + '">open queue</button></div>' +
+      '<table class="cov"><tr><th class="left">conversation</th><th class="left">reason</th></tr>';
+    b.items.forEach((it) => {
+      const c = state.allIndex[it.session_id];
+      html += '<tr><td class="left"><button type="button" class="link" data-action="grid-open" data-sid="' + esc(it.session_id) + '">' +
+        esc(c ? c.scenario_id : shortId(it.session_id)) + '</button>' +
+        (c ? ' <span class="muted small">' + esc(c.role) + (c.turn_count > 1 ? ' · ' + c.turn_count + ' turns' : '') + '</span>' : '') +
+        '</td><td class="left">' + esc(it.reason || '') + '</td></tr>';
+    });
+    html += '</table></div>';
+  });
+  el.innerHTML = html;
+}
+
+$('progress-view').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-action]');
+  if (b) {
+    if (b.dataset.action === 'grid-toggle') { state.gridOpen[b.dataset.sid] = !state.gridOpen[b.dataset.sid]; renderGrid(); }
+    else if (b.dataset.action === 'grid-open') openConversation(b.dataset.sid);
+    else if (b.dataset.action === 'queue') loadQueue(b.dataset.queue);
+    return;
+  }
+  const row = e.target.closest('tr.row[data-dim]');
+  if (row) queueCoverage(row.dataset.dim, row.dataset.value);
+});
 
 /* ---- boot -------------------------------------------------------------- */
 

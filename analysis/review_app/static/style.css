@@ -283,3 +283,30 @@ details.args pre { background: #f3f4f6; border-radius: 4px; padding: 6px 8px; ma
 }
 .picker .pick:hover { border-color: var(--amber); }
 body.evidence-mode #conversation { outline: 2px dashed var(--amber); outline-offset: 4px; border-radius: 8px; }
+
+/* ---- progress view ---------------------------------------------------- */
+#progress-view { padding: 16px; max-width: 1100px; display: grid; gap: 20px; }
+.progress-section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; }
+.summary { font-size: 13px; color: var(--muted); margin: 0 0 8px; }
+table.cov { border-collapse: collapse; font-size: 13px; width: 100%; }
+table.cov th, table.cov td { padding: 4px 10px; text-align: right; border-bottom: 1px solid #f0f1f3; font-variant-numeric: tabular-nums; }
+table.cov th.left, table.cov td.left { text-align: left; }
+table.cov th { color: var(--muted); font-weight: 500; font-size: 12px; }
+table.cov tr.section td { text-align: left; font-weight: 600; padding-top: 12px; border-bottom: 1px solid var(--line); }
+table.cov tr.row { cursor: pointer; }
+table.cov tr.row:hover { background: #f9fafb; }
+
+table.grid { border-collapse: collapse; font-size: 13px; }
+table.grid th, table.grid td { padding: 3px 8px; border-bottom: 1px solid #f0f1f3; text-align: center; white-space: nowrap; }
+table.grid th.left, table.grid td.left { text-align: left; }
+table.grid th { color: var(--muted); font-weight: 500; font-size: 12px; }
+table.grid th.col { font-weight: 600; color: var(--ink); max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+table.grid .cell { min-width: 36px; }
+table.grid .cell.one { background: #fee2e2; color: #991b1b; font-weight: 700; }
+table.grid .cell.zero { background: #f3f4f6; color: var(--muted); }
+table.grid .cell.empty { outline: 1px dotted #d1d5db; outline-offset: -4px; }
+table.grid tr.turn-row td { background: #fafafa; }
+table.grid tr.foot td { border-top: 2px solid var(--line); color: var(--muted); font-size: 12px; }
+.twist { color: var(--muted); font-size: 12px; }
+.batch { margin-bottom: 16px; }
+.batch-head { display: flex; gap: 10px; align-items: baseline; margin-bottom: 4px; }
