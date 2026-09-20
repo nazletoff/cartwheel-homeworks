@@ -329,3 +329,7 @@ table.grid tr.foot td { border-top: 2px solid var(--line); color: var(--muted); 
 #panel #answer-key-body { padding: 4px 14px 12px; }
 #panel table.kv th { width: 92px; }
 #panel table.kv { width: 100%; }
+#panel table.kv { table-layout: fixed; }
+#panel table.kv th { white-space: normal; width: 88px; padding-right: 10px; }
+#panel table.kv td { word-break: break-word; }
+#panel table.kv .chip { white-space: normal; }
