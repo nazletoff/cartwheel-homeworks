@@ -1,0 +1,66 @@
+    ┌─scenario_id──┬─traces─┐
+ 1. │ support-0212 │      3 │
+ 2. │ support-0213 │      3 │
+ 3. │ pilot-0030   │      3 │
+ 4. │ support-0197 │      2 │
+ 5. │ pilot-0005   │      2 │
+ 6. │ support-0198 │      2 │
+ 7. │ support-0217 │      2 │
+ 8. │ support-0220 │      2 │
+ 9. │ support-0214 │      2 │
+10. │ support-0002 │      2 │
+11. │ pilot-0031   │      2 │
+12. │ support-0058 │      2 │
+13. │ pilot-0022   │      2 │
+14. │ support-0200 │      2 │
+15. │ support-0199 │      2 │
+16. │ support-0216 │      2 │
+17. │ support-0219 │      2 │
+18. │ support-0218 │      2 │
+19. │ support-0005 │      2 │
+20. │ support-0215 │      2 │
+21. │ support-0238 │      2 │
+22. │ support-0031 │      2 │
+23. │ support-0018 │      2 │
+24. │ support-0019 │      2 │
+25. │ support-0222 │      2 │
+26. │ support-0015 │      2 │
+27. │ support-0155 │      1 │
+28. │ support-0242 │      1 │
+29. │ support-0223 │      1 │
+30. │ support-0134 │      1 │
+31. │ pilot-0004   │      1 │
+32. │ support-0209 │      1 │
+33. │ support-0014 │      1 │
+34. │ support-0075 │      1 │
+35. │ support-0117 │      1 │
+36. │ support-0094 │      1 │
+37. │ support-0132 │      1 │
+38. │ support-0038 │      1 │
+39. │ support-0037 │      1 │
+40. │ support-0225 │      1 │
+41. │ support-0056 │      1 │
+42. │ support-0118 │      1 │
+43. │ support-0176 │      1 │
+44. │ support-0012 │      1 │
+45. │ support-0179 │      1 │
+46. │ support-0203 │      1 │
+47. │ support-0073 │      1 │
+48. │ support-0086 │      1 │
+49. │ pilot-0011   │      1 │
+50. │ support-0125 │      1 │
+    └─scenario_id──┴─traces─┘
+   ┌─role─────┬─traces─┐
+1. │ shopper  │    220 │
+2. │ merchant │     52 │
+3. │ support  │     47 │
+4. │          │      2 │
+   └──────────┴────────┘
+   ┌─name───────────────────────┬─errors─┐
+1. │ cartwheel-support.agent    │      1 │
+2. │ cartwheel.session_message  │      1 │
+3. │ explain_refund_eligibility │      1 │
+   └────────────────────────────┴────────┘
+   ┌─escalations─┐
+1. │          87 │
+   └─────────────┘

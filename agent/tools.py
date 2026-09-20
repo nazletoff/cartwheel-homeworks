@@ -358,6 +358,16 @@ def explain_refund_eligibility(ctx: AuthContext, order_id: int) -> dict[str, Any
             f"order #{order_id} has status '{order.status}'; only delivered orders "
             f"can be refunded"
         )
+    elif order.delivered_at is None:
+        # Damaged record (dq-order-missing-delivery-date): delivered with no
+        # date. The window cannot be computed, so say so instead of raising.
+        days = None
+        window_end = None
+        reason = (
+            f"order #{order_id} is marked delivered but has no delivery date on "
+            f"record, so the {window}-day return window cannot be computed; "
+            f"treated as not eligible and needs a human to confirm the delivery date"
+        )
     else:
         days = (as_of - order.delivered_at).days
         window_end = order.delivered_at + timedelta(days=window)

@@ -41,3 +41,15 @@ def test_registered_for_every_role() -> None:
 
     for role, tool_list in TOOLS_BY_ROLE.items():
         assert any(t.name == "explain_refund_eligibility" for t in tool_list), role
+
+
+def test_delivered_without_delivery_date_does_not_crash(world: dict) -> None:
+    # Order 8002 (data quality case dq-order-missing-delivery-date): status
+    # delivered, delivered_at NULL. Found by HW3 pilot-0024: the tool raised
+    # instead of answering. It must return a structured "not eligible" with no
+    # computed deadline.
+    r = tools.explain_refund_eligibility(AuthContext(user_id=392, role="shopper"), 8002)
+    assert r["ok"] is True and r["eligible"] is False
+    assert r["status"] == "delivered" and r["delivered_at"] is None
+    assert r["days_since_delivery"] is None and r["window_ends_on"] is None
+    assert "no delivery date" in r["reason"]
