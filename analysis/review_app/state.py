@@ -537,7 +537,12 @@ class StateStore:
         if name.startswith("mode:"):
             mode = name[5:]
             hits = {r["session_id"] for r in self._label_records(mode).values() if r.get("label") == 1}
-            hits |= {a["session_id"] for a in self.annotations() if a.get("mode") == mode}
+            anns = self.annotations()
+            hits |= {a["session_id"] for a in anns if a.get("mode") == mode}
+            m = self._mode(mode)
+            if m:
+                origin_ids = set(m.get("created_from") or [])
+                hits |= {a["session_id"] for a in anns if a["id"] in origin_ids}
             return [sid for sid in order if sid in hits]
         if name.startswith("role:"):
             role = name[5:]

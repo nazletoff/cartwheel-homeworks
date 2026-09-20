@@ -199,6 +199,7 @@ def _summary(c: dict[str, Any], status: str, pending: set[str]) -> dict[str, Any
         "source": c["source"],
         "role": c["role"],
         "scenario_group": c.get("scenario_group"),
+        "intent": ((c.get("answer_key") or {}).get("tuple") or {}).get("intent"),
         "turn_count": c["turn_count"],
         "tool_call_count": c["tool_call_count"],
         "status": status,
@@ -291,13 +292,17 @@ def post_suggestions(body: Any = Body(default=None)) -> dict[str, Any]:
 
 
 @app.post("/api/suggestion/{suggestion_id}/decision")
-def decide(suggestion_id: str, body: DecisionIn) -> dict[str, Any]:
+def decide(suggestion_id: str, body: DecisionIn) -> Any:
     try:
-        return STORE.decide_suggestion(suggestion_id, body.status, body.reason)
+        rec = STORE.decide_suggestion(suggestion_id, body.status, body.reason)
     except KeyError:
         raise HTTPException(404, suggestion_id)
     except ValueError as exc:
         raise HTTPException(400, str(exc))
+    except Exception as exc:  # decision and note are on file; the Langfuse score is not
+        rec = next((s for s in STORE.suggestions() if s["id"] == suggestion_id), {"id": suggestion_id})
+        return {**rec, "langfuse_error": f"{type(exc).__name__}: {exc}"}
+    return {**rec, "langfuse_error": None}
 
 
 # taxonomy
