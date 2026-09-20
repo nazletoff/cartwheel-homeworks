@@ -438,7 +438,7 @@ function switchView(name) {
 }
 
 function closeOverlays() {
-  if (!$('popover').hidden) { clearPending(); return; }
+  if (!$('popover').hidden) { cancelNote(); return; }
   if (state.evidenceMode || state.picker) { cancelEvidenceMode(); return; }
   if (!$('hotkeys').hidden) { $('hotkeys').hidden = true; return; }
   $('error-banner').hidden = true;
@@ -486,18 +486,365 @@ $('conversation').addEventListener('click', (e) => {
 $('conversation').addEventListener('toggle', () => layoutMargin(), true);
 window.addEventListener('resize', () => layoutMargin());
 
-/* ---- filled in by later tasks (notes, panel, progress) ----------------- */
+/* ---- notes: highlights, margin cards, selection popover ---------------- */
 
-function applyHighlights() {}
-function layoutMargin() {}
-function clearPending() {}
+let pending = null;        // {span, ctx: {trace_id, block, quote}} while the popover is open
+state.evidenceMode = null; // mode name while the next selection becomes label evidence
+state.picker = null;       // mode name while the evidence picker is open in the panel
+
+/* Everything that gets a highlight or a margin card for the open conversation. */
+function itemsForConversation() {
+  const c = state.conv;
+  if (!c) return [];
+  const anns = (c.annotations || []).map((a) => {
+    let kind = 'note';
+    if (a.kind === 'no_failure') kind = 'no_failure';
+    else if (a.source === 'accepted_suggestion') kind = 'accepted';
+    return Object.assign({}, a, { kind });
+  });
+  const sugg = (c.suggestions || [])
+    .filter((s) => s.status === 'pending')
+    .map((s) => Object.assign({}, s, { kind: 'sugg' }));
+  return anns.concat(sugg);
+}
+
+function blockEl(traceId, block) {
+  const turn = document.querySelector('#conversation .turn[data-trace="' + traceId + '"]');
+  return turn ? turn.querySelector('[data-block="' + block + '"]') : null;
+}
+
+/* Rebuild each block's text with <span.hl> around the first occurrence of
+   every quote that belongs to it. Blocks hold plain text, so textContent is
+   the source of truth and re-applying is idempotent. */
+function applyHighlights() {
+  const byKey = {};
+  itemsForConversation().forEach((it) => {
+    if (!it.quote || !it.trace_id) return;
+    const k = it.trace_id + '|' + it.block;
+    (byKey[k] = byKey[k] || []).push(it);
+  });
+  document.querySelectorAll('#conversation [data-block]').forEach((el) => {
+    const turn = el.closest('.turn');
+    const mine = turn ? (byKey[turn.dataset.trace + '|' + el.dataset.block] || []) : [];
+    const text = el.textContent;
+    if (!mine.length) {
+      if (el.firstElementChild) el.textContent = text;
+      return;
+    }
+    const ranges = [];
+    mine.forEach((it) => {
+      const pos = text.indexOf(it.quote);
+      if (pos >= 0) ranges.push([pos, pos + it.quote.length, it]);
+    });
+    ranges.sort((a, b) => a[0] - b[0]);
+    let out = '';
+    let cursor = 0;
+    ranges.forEach(([s, e, it]) => {
+      if (s < cursor) return; // overlapping quotes: the earlier one wins
+      out += esc(text.slice(cursor, s));
+      out += '<span class="hl' + (it.kind === 'sugg' ? ' sugg' : '') + '" data-item="' + esc(it.id) + '">' +
+        esc(text.slice(s, e)) + '</span>';
+      cursor = e;
+    });
+    out += esc(text.slice(cursor));
+    el.innerHTML = out;
+  });
+  // a highlight hidden in a collapsed result or a closed details must be visible
+  document.querySelectorAll('#conversation .hl').forEach((hl) => {
+    const res = hl.closest('.result.collapsed');
+    if (res) {
+      state.expanded.add(res.dataset.result);
+      res.classList.remove('collapsed');
+      const b = res.querySelector('.expand');
+      if (b) b.textContent = 'collapse';
+    }
+    const det = hl.closest('details');
+    if (det && !det.open) det.open = true;
+  });
+}
+
+function noteCardHtml(it, found) {
+  let tag;
+  if (it.kind === 'sugg') tag = 'agent suggestion · ' + esc(it.mode || '?');
+  else if (it.kind === 'accepted') tag = 'suggested · accepted' + (it.mode ? ' · ' + esc(it.mode) : '');
+  else if (it.kind === 'no_failure') tag = 'no failure observed';
+  else tag = 'you' + (it.mode ? ' · ' + esc(it.mode) : '');
+  let html = '<div class="tag">' + tag + '</div>';
+  if (it.quote) {
+    html += '<div class="quote">“' + esc(clip(it.quote, 90)) + '”' +
+      (found ? '' : ' <span class="muted">(quote not found in the text)</span>') + '</div>';
+  }
+  if (it.kind === 'no_failure') {
+    html += '<div class="body muted">' + esc(it.note) + '</div>' +
+      '<div class="acts hover"><button type="button" class="link" data-action="delete-note" data-id="' + esc(it.id) + '">undo</button></div>';
+  } else if (it.kind === 'sugg') {
+    if (it.note) html += '<div class="body">' + esc(it.note) + '</div>';
+    if (it.method) html += '<div class="meta muted">method: ' + esc(it.method) + '</div>';
+    html += '<div class="acts">' +
+      '<button type="button" class="btn small accept" data-action="accept" data-id="' + esc(it.id) + '">Accept</button>' +
+      '<button type="button" class="btn small" data-action="reject" data-id="' + esc(it.id) + '">Reject</button></div>';
+  } else {
+    html += '<div class="body" data-note-body="' + esc(it.id) + '">' + esc(it.note) + '</div>' +
+      '<div class="acts hover">' +
+      '<button type="button" class="link" data-action="edit-note" data-id="' + esc(it.id) + '">edit</button>' +
+      '<button type="button" class="link" data-action="delete-note" data-id="' + esc(it.id) + '">delete</button></div>';
+  }
+  return html;
+}
+
+/* Margin cards sit at their highlight's top, measured as the difference of
+   two getBoundingClientRect tops (no scrollTop: that double-counts), and
+   stack downwards with an 8px minimum gap. */
+function layoutMargin() {
+  const col = $('margin');
+  if (!col || $('review-view').hidden) return;
+  col.innerHTML = '';
+  const items = itemsForConversation();
+  if (!items.length) return;
+  const colRect = col.getBoundingClientRect();
+  const placed = items.map((it) => {
+    let anchor = null;
+    if (it.quote) anchor = document.querySelector('#conversation .hl[data-item="' + it.id + '"]');
+    const found = !!anchor;
+    if (!anchor && it.kind === 'no_failure') anchor = document.querySelector('#conversation .conv-foot');
+    if (!anchor && it.trace_id) anchor = document.querySelector('#conversation .turn[data-trace="' + it.trace_id + '"]');
+    const top = anchor ? anchor.getBoundingClientRect().top - colRect.top : 0;
+    return { it, top: Math.max(0, top), found };
+  }).sort((a, b) => a.top - b.top);
+  let lastBottom = 0;
+  placed.forEach(({ it, top, found }) => {
+    const card = document.createElement('div');
+    card.className = 'mnote ' + it.kind;
+    card.dataset.item = it.id;
+    card.innerHTML = noteCardHtml(it, found);
+    const y = Math.max(top, lastBottom);
+    card.style.top = y + 'px';
+    col.appendChild(card);
+    lastBottom = y + card.offsetHeight + 8;
+  });
+}
+
+function nodeBlock(node) {
+  const el = node && (node.nodeType === 1 ? node : node.parentElement);
+  return el ? el.closest('#conversation [data-block]') : null;
+}
+
+/* mouseup inside the conversation: a non-empty selection inside one block
+   becomes a pending highlight, wrapped BEFORE the input takes focus so the
+   browser's selection clearing does not lose it. */
+function onSelection(e) {
+  if (e.target.closest('button, summary, select, input, textarea')) return;
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+  const quote = sel.toString().trim();
+  if (!quote) return;
+  const range = sel.getRangeAt(0);
+  const startBlock = nodeBlock(range.startContainer);
+  const endBlock = nodeBlock(range.endContainer);
+  if (!startBlock || startBlock !== endBlock) {
+    toast('select inside one block (user, reasoning, arguments, result or reply)');
+    sel.removeAllRanges();
+    return;
+  }
+  const turn = startBlock.closest('.turn');
+  const ctx = { trace_id: turn.dataset.trace, block: startBlock.dataset.block, quote };
+  if (state.evidenceMode) {
+    sel.removeAllRanges();
+    submitEvidence(state.evidenceMode, ctx);
+    return;
+  }
+  clearPending();
+  const span = document.createElement('span');
+  span.className = 'hl pending';
+  try {
+    range.surroundContents(span);
+  } catch (err) {
+    // the range crosses an existing highlight: split it, re-applied on commit or cancel
+    try { span.appendChild(range.extractContents()); range.insertNode(span); } catch (err2) { toast('could not mark that selection'); return; }
+  }
+  sel.removeAllRanges();
+  pending = { span, ctx };
+  const rect = span.getBoundingClientRect();
+  const pop = $('popover');
+  pop.hidden = false;
+  const maxLeft = window.scrollX + document.documentElement.clientWidth - 360;
+  pop.style.left = Math.max(8, Math.min(window.scrollX + rect.left, maxLeft)) + 'px';
+  pop.style.top = (window.scrollY + rect.bottom + 6) + 'px';
+  const input = $('note-input');
+  input.value = '';
+  input.focus();
+}
+
+/* Unwrap the pending span and hide the popover. Does not re-render. */
+function clearPending() {
+  if (pending && pending.span && pending.span.parentNode) {
+    const span = pending.span;
+    const parent = span.parentNode;
+    while (span.firstChild) parent.insertBefore(span.firstChild, span);
+    parent.removeChild(span);
+    parent.normalize();
+  }
+  pending = null;
+  $('popover').hidden = true;
+}
+
+function cancelNote() {
+  clearPending();
+  applyHighlights();
+  layoutMargin();
+}
+
+async function commitNote() {
+  if (!pending) return;
+  const note = $('note-input').value.trim();
+  if (!note) { cancelNote(); return; }
+  const body = Object.assign({ session_id: state.conv.session_id, note }, pending.ctx);
+  clearPending();
+  try {
+    await api('POST', '/api/annotation', body);
+    toast('note saved');
+    await refreshConversation();
+    await afterChange();
+  } catch (e) {
+    toast('save failed: ' + e.message);
+    applyHighlights();
+    layoutMargin();
+  }
+}
+
+/* Re-fetch the open conversation's notes, suggestions and labels without
+   rebuilding the turns (keeps expanded results and scroll position). */
+async function refreshConversation() {
+  if (!state.conv) return;
+  const sid = state.conv.session_id;
+  const conv = await api('GET', '/api/conversation/' + encodeURIComponent(sid));
+  if (!state.conv || state.conv.session_id !== sid) return;
+  state.conv = conv;
+  const foot = document.querySelector('#conversation .conv-foot');
+  if (foot) foot.outerHTML = renderFooter();
+  applyHighlights();
+  layoutMargin();
+  renderLabels();
+}
+
+function startEdit(id) {
+  const body = document.querySelector('#margin [data-note-body="' + id + '"]');
+  if (!body) return;
+  const current = body.textContent;
+  body.innerHTML = '<textarea class="edit" rows="3"></textarea><div class="hint">Enter saves · Esc cancels</div>';
+  const ta = body.querySelector('textarea');
+  ta.value = current;
+  ta.focus();
+  ta.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const note = ta.value.trim();
+      if (!note) return;
+      try {
+        await api('PATCH', '/api/annotation/' + encodeURIComponent(id), { note });
+        toast('note updated');
+        await refreshConversation();
+        await afterChange();
+      } catch (err) {
+        toast('update failed: ' + err.message);
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      layoutMargin();
+    }
+  });
+}
+
+async function deleteAnnotation(id) {
+  try {
+    await api('DELETE', '/api/annotation/' + encodeURIComponent(id));
+    toast('note deleted');
+    await refreshConversation();
+    await afterChange();
+  } catch (e) {
+    toast('delete failed: ' + e.message);
+  }
+}
+
+async function markNoFailure() {
+  const c = state.conv;
+  if (!c) return;
+  if ((c.annotations || []).some((a) => a.kind === 'no_failure')) {
+    toast('already marked: no failure observed');
+    return;
+  }
+  const last = c.turns[c.turns.length - 1];
+  try {
+    await api('POST', '/api/no_failure', { session_id: c.session_id, trace_id: last.trace_id });
+    toast('marked: no failure observed');
+    await refreshConversation();
+    await afterChange();
+  } catch (e) {
+    toast('could not mark: ' + e.message);
+  }
+}
+
+async function decideSuggestion(id, status) {
+  let reason = null;
+  if (status === 'rejected') {
+    reason = window.prompt('Reason for rejecting (optional)', '');
+    if (reason === null) return;
+    reason = reason.trim() || null;
+  }
+  try {
+    await api('POST', '/api/suggestion/' + encodeURIComponent(id) + '/decision', { status, reason });
+    toast(status === 'accepted' ? 'accepted: now a note tagged suggested · accepted' : 'rejected, kept on file');
+    await refreshConversation();
+    await afterChange();
+  } catch (e) {
+    toast('decision failed: ' + e.message);
+  }
+}
+
+function linkHover(container, findOther) {
+  container.addEventListener('mouseover', (e) => {
+    const el = e.target.closest('[data-item]');
+    if (!el) return;
+    const other = findOther(el.dataset.item);
+    if (other) other.classList.add('linked');
+  });
+  container.addEventListener('mouseout', (e) => {
+    const el = e.target.closest('[data-item]');
+    if (!el) return;
+    const other = findOther(el.dataset.item);
+    if (other) other.classList.remove('linked');
+  });
+}
+
+$('conversation').addEventListener('mouseup', onSelection);
+$('note-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); commitNote(); }
+  else if (e.key === 'Escape') { e.preventDefault(); cancelNote(); }
+});
+document.addEventListener('mousedown', (e) => {
+  const pop = $('popover');
+  if (!pop.hidden && !pop.contains(e.target)) cancelNote();
+});
+$('margin').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-action]');
+  if (!b) return;
+  const id = b.dataset.id;
+  if (b.dataset.action === 'accept') decideSuggestion(id, 'accepted');
+  else if (b.dataset.action === 'reject') decideSuggestion(id, 'rejected');
+  else if (b.dataset.action === 'edit-note') startEdit(id);
+  else if (b.dataset.action === 'delete-note') deleteAnnotation(id);
+});
+linkHover($('margin'), (id) => document.querySelector('#conversation .hl[data-item="' + id + '"]'));
+linkHover($('conversation'), (id) => document.querySelector('#margin .mnote[data-item="' + id + '"]'));
+
+/* ---- filled in by later tasks (panel, progress) ------------------------ */
+
 function cancelEvidenceMode() {}
+function submitEvidence() {}
 function renderLabels() {}
 function renderPanel() {}
 function refreshProgressView() {}
-function markNoFailure() { toast('notes arrive in the next step'); }
 function toggleModeKey() {}
-function deleteAnnotation() {}
 
 /* ---- boot -------------------------------------------------------------- */
 

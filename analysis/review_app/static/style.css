@@ -202,3 +202,42 @@ details.args pre { background: #f3f4f6; border-radius: 4px; padding: 6px 8px; ma
   opacity: 0; transition: opacity .15s, transform .15s;
 }
 #toast.show { opacity: 1; transform: translateX(-50%); }
+
+/* ---- highlights and margin notes ------------------------------------- */
+.hl { background: var(--hl); border-radius: 2px; cursor: pointer; }
+.hl.pending { background: var(--hl-pending); }
+.hl.sugg { background: #fff7ed; outline: 1.5px dashed var(--amber); outline-offset: 1px; }
+.hl.linked { outline: 2px solid var(--ink); outline-offset: 1px; }
+
+.mnote {
+  position: absolute; left: 0; width: 100%;
+  background: var(--panel); border: 1px solid var(--line); border-left: 3px solid #facc15;
+  border-radius: 4px; padding: 7px 9px; font-size: 12.5px; line-height: 1.45;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+.mnote.sugg { border-left-color: var(--amber); background: #fffbeb; }
+.mnote.accepted { border-left-color: var(--amber); }
+.mnote.no_failure { border-left-color: #9ca3af; background: #f9fafb; }
+.mnote.linked { box-shadow: 0 0 0 2px var(--ink); }
+.mnote .tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #92400e; margin-bottom: 3px; }
+.mnote.sugg .tag { color: #b45309; }
+.mnote.no_failure .tag { color: var(--muted); }
+.mnote .quote { color: var(--muted); font-style: italic; margin-bottom: 3px; overflow-wrap: anywhere; }
+.mnote .body { white-space: pre-wrap; overflow-wrap: anywhere; }
+.mnote .meta { font-size: 11px; margin-top: 2px; }
+.mnote .acts { margin-top: 5px; display: flex; gap: 8px; }
+.mnote .acts.hover { visibility: hidden; }
+.mnote:hover .acts.hover { visibility: visible; }
+.mnote .btn.accept { border-color: var(--reply); color: var(--reply); }
+.mnote textarea.edit {
+  width: 100%; font: inherit; font-size: 12.5px; border: 1px solid var(--line);
+  border-radius: 4px; padding: 4px 6px; resize: vertical;
+}
+.hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+#popover {
+  position: absolute; z-index: 35; width: 340px; padding: 8px;
+  background: #fff; border: 1px solid var(--line); border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.12);
+}
+#popover input { width: 100%; font: inherit; padding: 5px 8px; border: 1px solid var(--line); border-radius: 4px; }
