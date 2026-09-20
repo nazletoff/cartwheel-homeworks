@@ -24,6 +24,11 @@ const state = {
   allIndex: {},        // session_id -> list summary, every conversation
   filter: null,        // {dim, value} client-side filter over the current queue
   expanded: new Set(), // result block keys the reviewer expanded
+  modeOpen: {},        // mode name -> expanded in the Modes list
+  compare: { a: null, b: null },
+  splitSel: new Set(), // annotation ids ticked for a split
+  evidenceMode: null,  // mode name while the next selection becomes label evidence
+  picker: null,        // mode name while the evidence picker is open
 };
 
 let openSeq = 0;       // guards against out-of-order conversation loads
@@ -131,7 +136,7 @@ async function refreshList() {
 
 /* After any write: counts, statuses, queue sizes, panel. */
 async function afterChange() {
-  await Promise.all([refreshAnnotations(), refreshProgress(), refreshQueues(), refreshList(), refreshPatterns()]);
+  await Promise.all([refreshConversation(), refreshAnnotations(), refreshProgress(), refreshQueues(), refreshList(), refreshPatterns()]);
   renderCounts();
   renderPanel();
 }
@@ -489,8 +494,6 @@ window.addEventListener('resize', () => layoutMargin());
 /* ---- notes: highlights, margin cards, selection popover ---------------- */
 
 let pending = null;        // {span, ctx: {trace_id, block, quote}} while the popover is open
-state.evidenceMode = null; // mode name while the next selection becomes label evidence
-state.picker = null;       // mode name while the evidence picker is open in the panel
 
 /* Everything that gets a highlight or a margin card for the open conversation. */
 function itemsForConversation() {
@@ -648,9 +651,9 @@ function onSelection(e) {
   }
   const turn = startBlock.closest('.turn');
   const ctx = { trace_id: turn.dataset.trace, block: startBlock.dataset.block, quote };
-  if (state.evidenceMode) {
+  if (state.evidenceMode || state.picker) {
     sel.removeAllRanges();
-    submitEvidence(state.evidenceMode, ctx);
+    submitEvidence(state.evidenceMode || state.picker, ctx);
     return;
   }
   clearPending();
@@ -703,7 +706,6 @@ async function commitNote() {
   try {
     await api('POST', '/api/annotation', body);
     toast('note saved');
-    await refreshConversation();
     await afterChange();
   } catch (e) {
     toast('save failed: ' + e.message);
@@ -743,7 +745,6 @@ function startEdit(id) {
       try {
         await api('PATCH', '/api/annotation/' + encodeURIComponent(id), { note });
         toast('note updated');
-        await refreshConversation();
         await afterChange();
       } catch (err) {
         toast('update failed: ' + err.message);
@@ -759,7 +760,6 @@ async function deleteAnnotation(id) {
   try {
     await api('DELETE', '/api/annotation/' + encodeURIComponent(id));
     toast('note deleted');
-    await refreshConversation();
     await afterChange();
   } catch (e) {
     toast('delete failed: ' + e.message);
@@ -777,7 +777,6 @@ async function markNoFailure() {
   try {
     await api('POST', '/api/no_failure', { session_id: c.session_id, trace_id: last.trace_id });
     toast('marked: no failure observed');
-    await refreshConversation();
     await afterChange();
   } catch (e) {
     toast('could not mark: ' + e.message);
@@ -794,7 +793,6 @@ async function decideSuggestion(id, status) {
   try {
     await api('POST', '/api/suggestion/' + encodeURIComponent(id) + '/decision', { status, reason });
     toast(status === 'accepted' ? 'accepted: now a note tagged suggested · accepted' : 'rejected, kept on file');
-    await refreshConversation();
     await afterChange();
   } catch (e) {
     toast('decision failed: ' + e.message);
@@ -837,14 +835,318 @@ $('margin').addEventListener('click', (e) => {
 linkHover($('margin'), (id) => document.querySelector('#conversation .hl[data-item="' + id + '"]'));
 linkHover($('conversation'), (id) => document.querySelector('#margin .mnote[data-item="' + id + '"]'));
 
-/* ---- filled in by later tasks (panel, progress) ------------------------ */
+/* ---- right panel: modes, compare, labels ------------------------------- */
 
-function cancelEvidenceMode() {}
-function submitEvidence() {}
-function renderLabels() {}
-function renderPanel() {}
+function renderPanel() {
+  renderModes();
+  renderCompare();
+  renderLabels();
+}
+
+function modeByName(name) { return state.patterns.modes.find((m) => m.name === name) || null; }
+function finalModes() { return state.patterns.modes.filter((m) => m.status === 'final'); }
+function specText(id) {
+  const row = ((state.meta && state.meta.spec_legend) || []).find((r) => r.id === id);
+  return row ? row.text : '';
+}
+
+/* Notes that carry a mode: tagged with it, or listed in its created_from. */
+function modeNotes(name) {
+  const m = modeByName(name);
+  const from = new Set((m && m.created_from) || []);
+  return state.annotations.filter((a) => a.kind !== 'no_failure' && (a.mode === name || from.has(a.id)));
+}
+
+/* Live counts from /api/progress when present, else the mode record's own. */
+function modeCounts(name) {
+  const row = state.progress && (state.progress.modes || []).find((r) => r.name === name);
+  const m = modeByName(name) || {};
+  return {
+    first: row ? row.first_failure_count : (m.first_failure_count || 0),
+    any: row ? row.any_instance_count : (m.any_instance_count || 0),
+  };
+}
+
+function noteLineHtml(a, withCheckbox) {
+  const conv = state.allIndex[a.session_id];
+  const label = conv ? conv.scenario_id : shortId(a.session_id);
+  const box = withCheckbox
+    ? '<input type="checkbox" data-split-id="' + esc(a.id) + '"' + (state.splitSel.has(a.id) ? ' checked' : '') + ' title="tick to move in a split">'
+    : '';
+  return '<div class="note-line">' + box +
+    '<button type="button" class="link" data-action="open-note" data-sid="' + esc(a.session_id) + '" data-id="' + esc(a.id) + '">' + esc(label) + '</button>' +
+    (a.quote ? '<span class="q">“' + esc(clip(a.quote, 70)) + '”</span>' : '') +
+    '<span class="n">' + esc(clip(a.note || '', 100)) + '</span>' +
+    (a.source === 'accepted_suggestion' ? '<span class="chip">suggested</span>' : '') +
+    '</div>';
+}
+
+function renderModes() {
+  const el = $('modes');
+  const modes = state.patterns.modes;
+  if (!modes.length) {
+    el.innerHTML = '<div class="small muted">no modes yet: notes come first, the taxonomy is proposed from them</div>';
+    return;
+  }
+  el.innerHTML = modes.map((m) => {
+    const open = !!state.modeOpen[m.name];
+    const c = modeCounts(m.name);
+    let html = '<div class="mode' + (open ? ' open' : '') + '">' +
+      '<div class="mode-row" data-action="toggle-mode" data-mode="' + esc(m.name) + '" title="click to expand">' +
+        '<span class="mode-name mono">' + esc(m.name) + '</span>' +
+        '<span class="chip ' + esc(m.status) + '">' + esc(m.status) + '</span>' +
+        (m.spec_source ? '<span class="chip" title="' + esc(specText(m.spec_source)) + '">' + esc(m.spec_source) + '</span>' : '') +
+        (m.evaluator_type ? '<span class="small muted">' + esc(m.evaluator_type) + '</span>' : '') +
+        '<span class="mode-counts" title="first-failure notes · any-instance labels">' + c.first + ' · ' + c.any + '</span>' +
+      '</div>';
+    if (open) html += modeDetailHtml(m);
+    return html + '</div>';
+  }).join('');
+}
+
+function modeDetailHtml(m) {
+  const notes = modeNotes(m.name);
+  return '<div class="mode-detail">' +
+    '<div class="definition">' + esc(m.definition || 'no definition yet') + '</div>' +
+    (m.boundary ? '<div class="small muted">boundary: ' + esc(m.boundary) + '</div>' : '') +
+    (m.nearest_mode ? '<div class="small muted">nearest mode: ' + esc(m.nearest_mode) + '</div>' : '') +
+    '<div class="mode-notes">' + (notes.length ? notes.map((a) => noteLineHtml(a, false)).join('') : '<div class="small muted">no notes carry this mode</div>') + '</div>' +
+    '<div class="acts">' +
+      '<button type="button" class="btn small" data-action="queue-mode" data-mode="' + esc(m.name) + '">Queue this mode</button>' +
+      (m.revisions && m.revisions.length ? '<span class="small muted" title="' + esc(m.revisions.map((r) => r.change + (r.reason ? ': ' + r.reason : '')).join('\n')) + '">' + m.revisions.length + ' revisions</span>' : '') +
+    '</div>' +
+  '</div>';
+}
+
+function renderCompare() {
+  const el = $('compare');
+  const modes = state.patterns.modes;
+  if (modes.length < 2) {
+    el.innerHTML = '<div class="small muted">two modes needed to compare</div>';
+    return;
+  }
+  const names = modes.map((m) => m.name);
+  if (!names.includes(state.compare.a)) state.compare.a = names[0];
+  if (!names.includes(state.compare.b) || state.compare.b === state.compare.a) {
+    state.compare.b = names.find((n) => n !== state.compare.a) || null;
+  }
+  const A = modeByName(state.compare.a);
+  const B = modeByName(state.compare.b);
+  const options = (selected) => names.map((n) => '<option value="' + esc(n) + '"' + (n === selected ? ' selected' : '') + '>' + esc(n) + '</option>').join('');
+  const column = (m, withCheckbox) => {
+    const notes = modeNotes(m.name);
+    return '<div class="cmp-col">' +
+      '<div class="mono strong">' + esc(m.name) + '</div>' +
+      '<div class="definition small">' + esc(m.definition || 'no definition') + '</div>' +
+      '<div class="mode-notes">' + (notes.length ? notes.map((a) => noteLineHtml(a, withCheckbox)).join('') : '<div class="small muted">no notes</div>') + '</div>' +
+    '</div>';
+  };
+  const namesB = A.boundary && (A.boundary.toLowerCase().includes(B.name.toLowerCase()) || A.nearest_mode === B.name);
+  el.innerHTML =
+    '<div class="cmp-pick"><select data-cmp="a">' + options(A.name) + '</select><span class="muted small">vs</span><select data-cmp="b">' + options(B.name) + '</select></div>' +
+    '<div class="cmp-grid">' + column(A, true) + column(B, false) + '</div>' +
+    '<div class="boundary small">' + (namesB ? 'boundary: ' + esc(A.boundary) : '<span class="muted">no boundary sentence on ' + esc(A.name) + ' names ' + esc(B.name) + '</span>') + '</div>' +
+    '<div class="acts">' +
+      '<button type="button" class="btn small" data-action="merge">Merge ' + esc(B.name) + ' into ' + esc(A.name) + '</button>' +
+      '<button type="button" class="btn small" data-action="split">Split selected notes out of ' + esc(A.name) + '</button>' +
+    '</div>';
+}
+
+async function mergeModes() {
+  const a = state.compare.a;
+  const b = state.compare.b;
+  if (!a || !b || a === b) return;
+  if (!window.confirm('Merge ' + b + ' into ' + a + '? Notes and labels of ' + b + ' move to ' + a + ' and ' + b + ' disappears.')) return;
+  const reason = window.prompt('Reason (logged on ' + a + ')', '');
+  if (reason === null) return;
+  try {
+    await api('POST', '/api/patterns/merge', { keep: a, fold: b, reason: reason.trim() || null });
+    toast('merged ' + b + ' into ' + a);
+    state.compare.b = null;
+    state.splitSel.clear();
+    await afterChange();
+  } catch (e) {
+    toast('merge failed: ' + e.message);
+  }
+}
+
+async function splitMode() {
+  const a = state.compare.a;
+  const ids = Array.from(state.splitSel);
+  if (!a) return;
+  if (!ids.length) { toast('tick the notes to move out of ' + a + ' first'); return; }
+  const name = window.prompt('Name for the new candidate mode', '');
+  if (!name || !name.trim()) return;
+  const reason = window.prompt('Reason (logged on both modes)', '');
+  if (reason === null) return;
+  try {
+    await api('POST', '/api/patterns/split', { source: a, new_name: name.trim(), annotation_ids: ids, reason: reason.trim() || null });
+    toast('split ' + name.trim() + ' out of ' + a);
+    state.splitSel.clear();
+    await afterChange();
+  } catch (e) {
+    toast('split failed: ' + e.message);
+  }
+}
+
+/* ---- labels for the open conversation ---------------------------------- */
+
+function labelValue(mode) {
+  const recs = (state.conv && state.conv.labels && state.conv.labels[mode]) || [];
+  if (!recs.length) return { value: 'unset', rec: null };
+  const present = recs.find((r) => r.label === 1);
+  if (present) return { value: 'present', rec: present };
+  return { value: 'absent', rec: null };
+}
+
+function turnIndexOf(traceId) {
+  const t = state.conv && state.conv.turns.find((x) => x.trace_id === traceId);
+  return t ? t.turn_index : '?';
+}
+
+function renderLabels() {
+  const el = $('labels');
+  if (!el) return;
+  document.body.classList.toggle('evidence-mode', !!(state.evidenceMode || state.picker));
+  if (!state.conv) { el.innerHTML = ''; return; }
+  const finals = finalModes();
+  if (!finals.length) {
+    el.innerHTML = '<div class="small muted">no final modes yet: labels start once a mode is final</div>';
+    return;
+  }
+  el.innerHTML = finals.map((m, i) => {
+    const v = labelValue(m.name);
+    const seg = ['present', 'absent', 'unset'].map((opt) =>
+      '<button type="button"' + (v.value === opt ? ' class="on"' : '') + ' data-action="label" data-mode="' + esc(m.name) + '" data-value="' + opt + '">' + opt + '</button>'
+    ).join('');
+    let extra = '';
+    if (v.rec) {
+      extra += '<div class="evidence small muted">turn ' + turnIndexOf(v.rec.trace_id) + ' · “' + esc(clip(v.rec.evidence_quote || '', 70)) + '”</div>';
+    }
+    if (state.picker === m.name) extra += evidencePickerHtml(m.name);
+    else if (state.evidenceMode === m.name) {
+      extra += '<div class="picker"><span class="small">select text in the conversation as the evidence</span> ' +
+        '<button type="button" class="link" data-action="cancel-evidence">cancel</button></div>';
+    }
+    return '<div class="label-row">' +
+      '<div class="label-head"><kbd>' + (i + 1) + '</kbd><span class="mono" title="' + esc(m.name) + '">' + esc(m.name) + '</span><span class="seg small">' + seg + '</span></div>' +
+      extra +
+    '</div>';
+  }).join('');
+}
+
+function evidencePickerHtml(mode) {
+  const items = itemsForConversation().filter((it) => it.quote && it.kind !== 'sugg' && it.kind !== 'no_failure');
+  const list = items.map((it) =>
+    '<button type="button" class="pick" data-action="pick-evidence" data-mode="' + esc(mode) + '" data-id="' + esc(it.id) + '">' +
+    'turn ' + turnIndexOf(it.trace_id) + ' · “' + esc(clip(it.quote, 60)) + '”</button>'
+  ).join('');
+  return '<div class="picker">' +
+    '<div class="small">evidence for <span class="mono">' + esc(mode) + '</span>: pick a highlight, or select text in the conversation</div>' +
+    (list || '<div class="small muted">no highlights yet</div>') +
+    '<div class="acts">' +
+      '<button type="button" class="btn small" data-action="select-evidence" data-mode="' + esc(mode) + '">select text</button>' +
+      '<button type="button" class="link" data-action="cancel-evidence">cancel</button>' +
+    '</div>' +
+  '</div>';
+}
+
+async function setLabel(mode, label, evidence) {
+  if (!state.conv) return;
+  const sid = state.conv.session_id;
+  try {
+    const r = await api('POST', '/api/label', { session_id: sid, mode, label, evidence: evidence || null });
+    if (!state.conv || state.conv.session_id !== sid) return;
+    if (r.langfuse_error) showError('Label saved to the file, but the Langfuse score write failed: ' + r.langfuse_error);
+    state.conv.labels = state.conv.labels || {};
+    if (r.records && r.records.length) state.conv.labels[mode] = r.records;
+    else delete state.conv.labels[mode];
+    state.picker = null;
+    state.evidenceMode = null;
+    renderLabels();
+    if (label === null) toast(mode + ': unset');
+    else if (label === 1) toast(mode + ': present · 1 on the evidence turn, 0 on the other turns');
+    else toast(mode + ': absent · 0 on every turn');
+    await afterChange();
+  } catch (e) {
+    toast('label failed: ' + e.message);
+  }
+}
+
+function onLabelClick(mode, value) {
+  if (value === 'absent') { setLabel(mode, 0, null); return; }
+  if (value === 'unset') { setLabel(mode, null, null); return; }
+  state.evidenceMode = null;
+  state.picker = mode;
+  renderLabels();
+}
+
+function pickEvidence(mode, id) {
+  const it = itemsForConversation().find((x) => x.id === id);
+  if (!it) return;
+  setLabel(mode, 1, { trace_id: it.trace_id, quote: it.quote });
+}
+
+function submitEvidence(mode, ctx) {
+  setLabel(mode, 1, { trace_id: ctx.trace_id, quote: ctx.quote });
+}
+
+function startEvidenceMode(mode) {
+  state.picker = null;
+  state.evidenceMode = mode;
+  renderLabels();
+  toast('select text in the conversation as evidence for ' + mode + ' · Esc cancels');
+}
+
+function cancelEvidenceMode() {
+  if (!state.evidenceMode && !state.picker) return;
+  state.evidenceMode = null;
+  state.picker = null;
+  renderLabels();
+}
+
+/* Hotkeys 1 to 9: present <-> unset on the nth final mode. */
+function toggleModeKey(n) {
+  const m = finalModes()[n - 1];
+  if (!m || !state.conv) return;
+  if (labelValue(m.name).value === 'present') { setLabel(m.name, null, null); return; }
+  state.evidenceMode = null;
+  state.picker = m.name;
+  renderLabels();
+  const picker = document.querySelector('#labels .picker');
+  if (picker) picker.scrollIntoView({ block: 'nearest' });
+}
+
+$('panel').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-action]');
+  if (!b) return;
+  const a = b.dataset.action;
+  if (a === 'toggle-mode') { state.modeOpen[b.dataset.mode] = !state.modeOpen[b.dataset.mode]; renderModes(); }
+  else if (a === 'queue-mode') loadQueue('mode:' + b.dataset.mode);
+  else if (a === 'open-note') openConversation(b.dataset.sid, b.dataset.id);
+  else if (a === 'merge') mergeModes();
+  else if (a === 'split') splitMode();
+  else if (a === 'label') onLabelClick(b.dataset.mode, b.dataset.value);
+  else if (a === 'pick-evidence') pickEvidence(b.dataset.mode, b.dataset.id);
+  else if (a === 'select-evidence') startEvidenceMode(b.dataset.mode);
+  else if (a === 'cancel-evidence') cancelEvidenceMode();
+});
+$('panel').addEventListener('change', (e) => {
+  const t = e.target;
+  if (t.dataset.cmp) {
+    state.compare[t.dataset.cmp] = t.value;
+    state.splitSel.clear();
+    renderCompare();
+    t.blur();
+  } else if (t.dataset.splitId) {
+    if (t.checked) state.splitSel.add(t.dataset.splitId);
+    else state.splitSel.delete(t.dataset.splitId);
+  }
+});
+
+/* ---- filled in by the progress task ------------------------------------ */
+
 function refreshProgressView() {}
-function toggleModeKey() {}
 
 /* ---- boot -------------------------------------------------------------- */
 
