@@ -1,0 +1,368 @@
+{
+  "source": "langfuse",
+  "batches": [
+    {
+      "name": "batch1",
+      "method": "uniform+cluster",
+      "created_at": "2026-09-20T13:14:22.061719+00:00",
+      "items": [
+        {
+          "session_id": "2a66f472004e49b8974c9b8650ba4ebf",
+          "reason": "cluster 2 representative (cluster of 79): 1 turn, 2 tool calls"
+        },
+        {
+          "session_id": "0b351647ac694adbbfa6e9c7aee54d2b",
+          "reason": "cluster 0 representative (cluster of 41): 1 turn, 2 tool calls"
+        },
+        {
+          "session_id": "ef65f38c41d6488d858f3a9a88d6b9e7",
+          "reason": "cluster 5 representative (cluster of 31): 1 turn, 6 tool calls"
+        },
+        {
+          "session_id": "13f9eecdf36f43a0bd629635a8a93bb7",
+          "reason": "cluster 1 representative (cluster of 26): 1 turn, 4 tool calls, escalated"
+        },
+        {
+          "session_id": "c995c350e3cc4c04bc0bcd68d9f9fda2",
+          "reason": "cluster 4 representative (cluster of 25): 1 turn, 2 tool calls"
+        },
+        {
+          "session_id": "94911c0bed9e4420869b5aea151e050d",
+          "reason": "cluster 3 representative (cluster of 17): 1 turn, 9 tool calls, escalated, wrote"
+        },
+        {
+          "session_id": "65784030d89a4c22bf10c1c98e02c2f5",
+          "reason": "cluster 6 representative (cluster of 16): 2 turns, 2 tool calls"
+        },
+        {
+          "session_id": "c1d31ca772c842d797aab8b02a2a8f04",
+          "reason": "cluster 7 representative (cluster of 15): 1 turn, 5 tool calls, escalated"
+        },
+        {
+          "session_id": "efd894b1ae7d46ee9d2b2e74d3c14039",
+          "reason": "cluster 2 representative (cluster of 79): 1 turn, 2 tool calls"
+        },
+        {
+          "session_id": "4e2df1e50ada48ab991bcaca69c3fd98",
+          "reason": "cluster 0 representative (cluster of 41): 1 turn, 2 tool calls"
+        },
+        {
+          "session_id": "89ef17c3c38a4a5ea0d77eba4bded5f4",
+          "reason": "cluster 5 representative (cluster of 31): 1 turn, 6 tool calls"
+        },
+        {
+          "session_id": "d0c560c368024987b4097deea5f4256b",
+          "reason": "cluster 1 representative (cluster of 26): 1 turn, 4 tool calls, escalated"
+        },
+        {
+          "session_id": "f2608335fa4547f2808c88bb2c2d22bd",
+          "reason": "cluster 4 representative (cluster of 25): 1 turn, 1 tool calls"
+        },
+        {
+          "session_id": "334482226758464dba51c23045a65fcd",
+          "reason": "cluster 3 representative (cluster of 17): 1 turn, 9 tool calls, escalated, wrote"
+        },
+        {
+          "session_id": "70d79f17933c4f2d999cf5c1809c56bd",
+          "reason": "cluster 6 representative (cluster of 16): 2 turns, 2 tool calls"
+        },
+        {
+          "session_id": "3622907d82084cc98efc5e92fef0d858",
+          "reason": "uniform random pick: 1 turn, 3 tool calls"
+        },
+        {
+          "session_id": "fbbd4097b6d04636bb14bf917aa6e375",
+          "reason": "uniform random pick: 1 turn, 1 tool calls"
+        },
+        {
+          "session_id": "a46a08c9d40b40b7be5859c456e88c8b",
+          "reason": "uniform random pick: 1 turn, 3 tool calls, escalated"
+        },
+        {
+          "session_id": "4635ad3843c14488bcf4c2151b7a30be",
+          "reason": "uniform random pick: 1 turn, 1 tool calls"
+        },
+        {
+          "session_id": "74ce54ed4608492985a34acb8e6675b1",
+          "reason": "uniform random pick: 1 turn, 4 tool calls"
+        },
+        {
+          "session_id": "b2f823e544d84655a0169d679c2f4d05",
+          "reason": "uniform random pick: 1 turn, 5 tool calls, wrote"
+        },
+        {
+          "session_id": "7e563278fa2d406fade06776a805d215",
+          "reason": "uniform random pick: 1 turn, 5 tool calls, tool error"
+        },
+        {
+          "session_id": "b7f0dcec8fe644abbf76e9d8bcacf898",
+          "reason": "uniform random pick: 1 turn, 5 tool calls, escalated"
+        },
+        {
+          "session_id": "15aa605fbaa14cfc85e8b18a87f00e28",
+          "reason": "uniform random pick: 1 turn, 2 tool calls, escalated"
+        },
+        {
+          "session_id": "416d4b57ad3c4ef6849061be9624e672",
+          "reason": "uniform random pick: 1 turn, 5 tool calls, escalated"
+        },
+        {
+          "session_id": "6df8c029b2364d2397f6a4cbc96deaaf",
+          "reason": "uniform random pick: 1 turn, 1 tool calls"
+        },
+        {
+          "session_id": "920f4058a793469dbbf241f071097fc6",
+          "reason": "uniform random pick: 1 turn, 5 tool calls"
+        },
+        {
+          "session_id": "718612134eca4dfca00c2944ddb1ddf0",
+          "reason": "uniform random pick: 1 turn, 1 tool calls"
+        },
+        {
+          "session_id": "3dd8fc3a548c468aa9bd75e226d03652",
+          "reason": "uniform random pick: 2 turns, 4 tool calls, tool error"
+        },
+        {
+          "session_id": "150a3e505f8d4963a1708363373d4407",
+          "reason": "uniform random pick: 1 turn, 1 tool calls"
+        }
+      ]
+    }
+  ],
+  "k": 33,
+  "strategy": "batches",
+  "selected_at": "2026-09-20T13:14:22.062149+00:00",
+  "picks": [
+    {
+      "trace_id": "6a8b9bb8d4f3855ac8010264b3ab3fea",
+      "session_id": "2a66f472004e49b8974c9b8650ba4ebf",
+      "scenario_id": "support-0196",
+      "reason": "cluster 2 representative (cluster of 79): 1 turn, 2 tool calls",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "0e804a0c1d5ff44ce8fc4d5625089682",
+      "session_id": "0b351647ac694adbbfa6e9c7aee54d2b",
+      "scenario_id": "support-0115",
+      "reason": "cluster 0 representative (cluster of 41): 1 turn, 2 tool calls",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "cf58de9eb5a08d30024d7a8b2b7ad84c",
+      "session_id": "ef65f38c41d6488d858f3a9a88d6b9e7",
+      "scenario_id": "support-0194",
+      "reason": "cluster 5 representative (cluster of 31): 1 turn, 6 tool calls",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "9040d6d284380845ff2baef6beff8554",
+      "session_id": "13f9eecdf36f43a0bd629635a8a93bb7",
+      "scenario_id": "support-0185",
+      "reason": "cluster 1 representative (cluster of 26): 1 turn, 4 tool calls, escalated",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "d0ee752d8df2d76aebbbe715c13f083b",
+      "session_id": "c995c350e3cc4c04bc0bcd68d9f9fda2",
+      "scenario_id": "support-0240",
+      "reason": "cluster 4 representative (cluster of 25): 1 turn, 2 tool calls",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "0b45ab607680b8761d09a01ef686fab9",
+      "session_id": "94911c0bed9e4420869b5aea151e050d",
+      "scenario_id": "support-0056",
+      "reason": "cluster 3 representative (cluster of 17): 1 turn, 9 tool calls, escalated, wrote",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "efa28a9192cab50ffdc30a26a64e8041",
+      "session_id": "65784030d89a4c22bf10c1c98e02c2f5",
+      "scenario_id": "support-0019",
+      "reason": "cluster 6 representative (cluster of 16): 2 turns, 2 tool calls",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "cdef3c7449b608be636f943a05d99da6",
+      "session_id": "65784030d89a4c22bf10c1c98e02c2f5",
+      "scenario_id": "support-0019",
+      "reason": "cluster 6 representative (cluster of 16): 2 turns, 2 tool calls",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "46456b52246d809323ff83d452f76940",
+      "session_id": "c1d31ca772c842d797aab8b02a2a8f04",
+      "scenario_id": "support-0173",
+      "reason": "cluster 7 representative (cluster of 15): 1 turn, 5 tool calls, escalated",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "e4eb38a3456599c5c0ffcebcef4dcc5b",
+      "session_id": "efd894b1ae7d46ee9d2b2e74d3c14039",
+      "scenario_id": "support-0024",
+      "reason": "cluster 2 representative (cluster of 79): 1 turn, 2 tool calls",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "fd50dc984956117cc8e15f0346c2fd8b",
+      "session_id": "4e2df1e50ada48ab991bcaca69c3fd98",
+      "scenario_id": "support-0189",
+      "reason": "cluster 0 representative (cluster of 41): 1 turn, 2 tool calls",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "4f01da92df16de7ebd926effe3044660",
+      "session_id": "89ef17c3c38a4a5ea0d77eba4bded5f4",
+      "scenario_id": "support-0037",
+      "reason": "cluster 5 representative (cluster of 31): 1 turn, 6 tool calls",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "757e507bd38f0da51052478ce4c8f5d0",
+      "session_id": "d0c560c368024987b4097deea5f4256b",
+      "scenario_id": "support-0183",
+      "reason": "cluster 1 representative (cluster of 26): 1 turn, 4 tool calls, escalated",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "7bab1f1e2b144792c6934d4a66579663",
+      "session_id": "f2608335fa4547f2808c88bb2c2d22bd",
+      "scenario_id": "support-0153",
+      "reason": "cluster 4 representative (cluster of 25): 1 turn, 1 tool calls",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "244da33f94fbb9b37c5f530d441f6c2c",
+      "session_id": "334482226758464dba51c23045a65fcd",
+      "scenario_id": "support-0036",
+      "reason": "cluster 3 representative (cluster of 17): 1 turn, 9 tool calls, escalated, wrote",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "e1fc3a8a4a6efbc58190b47008fae137",
+      "session_id": "70d79f17933c4f2d999cf5c1809c56bd",
+      "scenario_id": "support-0005",
+      "reason": "cluster 6 representative (cluster of 16): 2 turns, 2 tool calls",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "c963f54315ae6a8931cfe04ea15b27fb",
+      "session_id": "70d79f17933c4f2d999cf5c1809c56bd",
+      "scenario_id": "support-0005",
+      "reason": "cluster 6 representative (cluster of 16): 2 turns, 2 tool calls",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "0e81f4e29b3b3a1bfefdd445ee81d519",
+      "session_id": "3622907d82084cc98efc5e92fef0d858",
+      "scenario_id": "support-0159",
+      "reason": "uniform random pick: 1 turn, 3 tool calls",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "139728675aac76a8ca4507be87e36b88",
+      "session_id": "fbbd4097b6d04636bb14bf917aa6e375",
+      "scenario_id": "support-0170",
+      "reason": "uniform random pick: 1 turn, 1 tool calls",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "a0616c1e709338fabe300a1e7133db7f",
+      "session_id": "a46a08c9d40b40b7be5859c456e88c8b",
+      "scenario_id": "support-0195",
+      "reason": "uniform random pick: 1 turn, 3 tool calls, escalated",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "3d4e96b9043e82fb330dcab86f8eade7",
+      "session_id": "4635ad3843c14488bcf4c2151b7a30be",
+      "scenario_id": "support-0078",
+      "reason": "uniform random pick: 1 turn, 1 tool calls",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "14a9ce5293d97003a9404a46c78e388d",
+      "session_id": "74ce54ed4608492985a34acb8e6675b1",
+      "scenario_id": "support-0038",
+      "reason": "uniform random pick: 1 turn, 4 tool calls",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "d6abf6909cdded15996be7ac6af122fd",
+      "session_id": "b2f823e544d84655a0169d679c2f4d05",
+      "scenario_id": "support-0123",
+      "reason": "uniform random pick: 1 turn, 5 tool calls, wrote",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "d66f255b220a94dc3a1b9abc0e7679d9",
+      "session_id": "7e563278fa2d406fade06776a805d215",
+      "scenario_id": "support-0246",
+      "reason": "uniform random pick: 1 turn, 5 tool calls, tool error",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "5e3d61eda686df9dcd99f959b4369597",
+      "session_id": "b7f0dcec8fe644abbf76e9d8bcacf898",
+      "scenario_id": "support-0223",
+      "reason": "uniform random pick: 1 turn, 5 tool calls, escalated",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "198eaad1bd0a16020e56eaaa628fc3b2",
+      "session_id": "15aa605fbaa14cfc85e8b18a87f00e28",
+      "scenario_id": "support-0111",
+      "reason": "uniform random pick: 1 turn, 2 tool calls, escalated",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "9b15829ad02e9a0f03b67028a2b0f8b5",
+      "session_id": "416d4b57ad3c4ef6849061be9624e672",
+      "scenario_id": "support-0095",
+      "reason": "uniform random pick: 1 turn, 5 tool calls, escalated",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "509598b5807bd260722f61002e225341",
+      "session_id": "6df8c029b2364d2397f6a4cbc96deaaf",
+      "scenario_id": "support-0068",
+      "reason": "uniform random pick: 1 turn, 1 tool calls",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "7dbf9c2b4e1b3d2cf3106f7157ac7d34",
+      "session_id": "920f4058a793469dbbf241f071097fc6",
+      "scenario_id": "support-0120",
+      "reason": "uniform random pick: 1 turn, 5 tool calls",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "bf0d95a6bdacb3324b25a31574128e7b",
+      "session_id": "718612134eca4dfca00c2944ddb1ddf0",
+      "scenario_id": "support-0007",
+      "reason": "uniform random pick: 1 turn, 1 tool calls",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "ed29842089eccaf467209b8aae5a4927",
+      "session_id": "3dd8fc3a548c468aa9bd75e226d03652",
+      "scenario_id": "support-0200",
+      "reason": "uniform random pick: 2 turns, 4 tool calls, tool error",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "691235ab731a6e54da87be9400248815",
+      "session_id": "3dd8fc3a548c468aa9bd75e226d03652",
+      "scenario_id": "support-0200",
+      "reason": "uniform random pick: 2 turns, 4 tool calls, tool error",
+      "batch": "batch1"
+    },
+    {
+      "trace_id": "bd4f8caca715125c5a42e5a544b84746",
+      "session_id": "150a3e505f8d4963a1708363373d4407",
+      "scenario_id": "support-0081",
+      "reason": "uniform random pick: 1 turn, 1 tool calls",
+      "batch": "batch1"
+    }
+  ]
+}
